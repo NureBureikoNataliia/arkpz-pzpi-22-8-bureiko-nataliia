@@ -1,1 +1,113 @@
+//У цьому файлі знаходиться код, що було отримано після рефакторингу
+//Код написаний на мові С#
+
+//Remove Flag
+public static string SearchNextSuspiciousEvent()
+{
+    foreach (var ev in Events)
+    {
+        string name = ev.Name.ToLower();
+
+        if (SpecialGroup.Any(keyword => name.Contains(keyword.ToLower())))
+        {
+            if (ev.Date.TimeOfDay > TimeSpan.FromHours(21))
+            {
+                return $"Найближча підозріла подія (пізно ввечері): {ev.Name} ({ev.Date.DayOfWeek})";
+            }
+
+            if (ev.Date.TimeOfDay < TimeSpan.FromHours(8))
+            {
+                return $"Найближча підозріла подія (рано вранці): {ev.Name} ({ev.Date.DayOfWeek})";
+            }
+        }
+    }
+
+    return "У Вас немає підозрілих подій";
+}
+
+//Encapsulate Field
+internal class Event
+{
+    string name;
+    DateTime date;
+    TimeSpan duration;
+    string location;
+
+    public Event(string name) 
+    {
+        Name = name;
+    }
+
+    public Event(string name, DateTime date1, DateTime date2, string location) 
+    {
+        Name = name;
+        Date = date1;
+        Duration = date2 - date1;
+        Location = location;
+    }
+
+    public string Name 
+    {
+        get { return name; }
+        set { name = value; }
+    }
+
+    public DateTime Date 
+    {
+        get
+        {
+            return date;
+        }
+        set
+        {
+            date = new DateTime(value.Year, value.Month, value.Day, value.Hour, value.Minute, 0);
+        }
+    }
+
+    public TimeSpan Duration 
+    {
+        get
+        {
+            return duration;
+        }
+        set
+        {
+            duration = new TimeSpan(value.Days, value.Hours, value.Minutes, 0);
+        }
+    }
+
+    public string Location
+    {
+        get { return location; }
+        set { location = value; }
+    }
+}
+
+//Replace Nested Conditional with Guard Clauses
+public static string ValidateMovingEvents(Event currentEvent, DateTime newDate,
+    bool selectDate) 
+{
+    if (currentEvent == null)
+    {
+        return "Ви не обрали назву справи!";
+    }
+    
+    if (!selectDate)
+    {
+        return "Ви не ввели дату та час початку!";
+    }
+
+    DateTime oldDate = currentEvent.Date;
+    currentEvent.Date = newDate;
+
+    string overlays = ValidateOverlaysToMove(currentEvent);
+    if (overlays != null)
+    {
+        currentEvent.Date = oldDate;
+        return overlays;
+    }
+
+    return null;
+}
+
 
