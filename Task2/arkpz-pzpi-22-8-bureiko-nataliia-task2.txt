@@ -1,0 +1,137 @@
+﻿Міністерство освіти і науки України
+Харківський національний університет радіоелектроніки
+
+
+
+
+Кафедра програмної інженерії
+
+
+
+
+ЗВІТ
+ з лабораторної роботи №2
+з дисципліни «Аналіз та рефакторинг коду»
+на тему «Розробка бази даних для серверної частини програмної системи та прикладного програмного інтерфейсу (API)»
+
+
+
+
+
+Виконала:                                                                      Перевірив:
+студ. гр. ПЗПІ-22-8                                                       ст. викл. каф. ПІ 
+Бурейко Н. М.                                                                Сокорчук І. П.
+
+
+
+
+
+Харків 2024
+     2 РОЗРОБКА БАЗИ ДАНИХ ДЛЯ СЕРВЕРНОЇ ЧАСТИНИ ПРОГРАМНОЇ СИСТЕМИ ТА ПРИКЛАДНОГО ПРОГРАМНОГО ІНТЕРФЕЙСУ (API)
+     
+     
+2.1  Мета роботи
+     Розробити базу даних для серверної частини  програмної системи та прикладного програмного інтерфейсу.
+
+2.2  Хід роботи 
+     Створимо UML діаграму прецедентів для серверної частини системи та подамо її в додатку А.
+	Створимо ER діаграму даних, врахуємо те, що заплановано використання NoSQL, тому зв’язок багато до багатьох дозволений (рис. 2.1). 
+
+
+Рисунок 2.1 . UML діаграма прецедентів
+
+	Розробимо базу даних програмної системи призначеної для проведення рекламної акції за допомогою MongoDB. Створимо діаграму структури бази даних та подамо на рисунку 2.2.
+
+
+Рисунок 2.2   Діаграма структури бази даних
+
+	Для підключення до бази даних MongoDB використаємо модуль mongodb, а саме MongoClient для підключення до бази даних через URI, що зберігається в змінній середовища ATLAS_URI. Реалізуємо наступний код у файлі connect.js: 
+  1 const { MongoClient, ServerApiVersion } = require('mongodb');
+  2 require("dotenv").config({path: "./config.env"})
+  3
+  4 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
+  5 const client = new MongoClient(process.env.ATLAS_URI, {
+  6   serverApi: {
+  7     version: ServerApiVersion.v1,
+  8     strict: true,
+  9     deprecationErrors: true,
+ 10   }
+ 11 });
+ 12
+ 13 let database
+ 14
+ 15 module.exports = {
+ 16   connectToServer: () => {
+ 17     database = client.db("PromotionSystem")
+ 18   },
+ 19   getDb: () => {
+ 20     return database
+ 21   }
+ 22 }
+     Файл підключення connect.js забезпечує управління з'єднанням, використовуючи конфігурацію, що задає API версію та параметри сумісності.
+     Цей код виконує підключення до бази даних MongoDB з використанням URI з process.env.ATLAS_URI, де вказано адрес сервера MongoDB Atlas. 
+     Визначено дві функції:
+‒ connectToServer: встановлює з'єднання з базою даних.
+‒ getDb: повертає поточне з'єднання з базою даних.
+     Систему побудуємо за принципами RESTful API на основі Express.js. Маршрутизація є модульною: для кожного ресурсу створюються окремі обробники маршрутів. У системі використаємо такі основні middleware: підтримка CORS, обробка JSON-запитів, робота з multipart/form-data і middleware для аутентифікації. У основному файлі сервера (server.js) підключимо базу даних через connect.connectToServer() під час запуску сервера:
+  1 const connect = require("./connect")
+  2 const express = require("express")
+  3 const cors = require("cors")
+  4 const multer = require("multer")
+  5 const upload = multer()
+  6
+  7 // Підключення до всіх маршрутів
+  8 const products = require("./routes/productRoutes");
+  9 const admins = require("./routes/adminRoutes");
+ 10 const quizzes = require("./routes/quizRoutes");
+ 11 const questions = require("./routes/questionRoutes");
+ 12 const answers = require("./routes/answerRoutes");
+ 13 const categories = require("./routes/categoryRoutes");
+ 14 const priorities = require("./routes/priorityRoutes");
+ 15 const awsRoutes = require("./routes/awsRoutes")
+ 16
+ 17 const app = express();
+ 18 const PORT = 3000;
+ 19
+ 20 // Використання middleware
+ 21 app.use(cors());
+ 22 app.use(express.json());
+ 23 app.use(upload.any())
+ 24
+ 25 // Маршрути для всіх колекцій
+ 26 app.use(products);
+ 27 app.use(admins);
+ 28 app.use(quizzes);
+ 29 app.use(questions);
+ 30 app.use(answers);
+ 31 app.use(categories);
+ 32 app.use(priorities);
+ 33 app.use(awsRoutes)
+ 34
+ 35 app.listen(PORT, () => {
+ 36     connect.connectToServer()
+ 37     console.log("Server is running")
+ 38 })
+     Аутентифікацію у системі реалізуємо на основі JWT (JSON Web Token). При вході адміністратора генерується токен, який надалі повинен передаватися під час кожного запиту. Middleware verifyToken перевіряє цей токен і надає доступ до захищених маршрутів.
+     Усі кінцеві точки поділяються на дві категорії: аутентифікація та CRUD-операції для ресурсів. Для аутентифікації надано маршрут POST /admins/login, де можна ввійти за допомогою електронної пошти та пароля. Ресурсні маршрути дотримуються стандартного шаблону: отримання всіх елементів (GET /resource), отримання конкретного елемента (GET /resource/:id), створення нового ресурсу (POST /resource), оновлення існуючого (PUT /resource/:id) та видалення елемента (DELETE /resource/:id).
+     У системі реалізовано базові механізми безпеки: паролі хешуються за допомогою bcrypt, аутентифікація виконується через токени JWT з терміном дії в 1 годину. Для захисту маршрутів використовується middleware для перевірки токенів.
+     Система побудована на Node.js з використанням Express.js як веб-фреймворку. MongoDB слугує основною базою даних, а для аутентифікації застосовуються JWT і bcrypt. Для завантаження файлів використовується Multer, а зберігання зображень відбувається через AWS S3.
+
+     Висновки
+     Розроблено базу даних для серверної частини  програмної системи та прикладного програмного інтерфейсу.
+     Відео захисту доступне за даним посиланням: https://www.youtube.com/watch?v=awXu7Dug9Kc
+     
+     
+
+ДОДАТОК А
+Діаграма сценаріїв використання
+
+
+
+Рисунок А.1 . UML діаграма прецедентів
+
+2
+
+
+
+
