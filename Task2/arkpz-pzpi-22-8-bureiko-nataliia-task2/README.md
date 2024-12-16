@@ -1,7 +1,7 @@
 ### Специфікація API для системи
 
 #### Загальна інформація:
-- **База даних**: MongoDB Atlas (підключення через `MongoClient`).
+- **База даних**: MongoDB (підключення через `MongoClient`).
 - **Фреймворк**: Node.js + Express.js.
 - **Аутентифікація**: JSON Web Token (JWT).
 - **Middleware**: CORS, обробка JSON, завантаження файлів (Multer), перевірка токенів (JWT).
