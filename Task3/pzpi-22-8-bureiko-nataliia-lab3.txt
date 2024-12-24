@@ -1,0 +1,405 @@
+﻿Міністерство освіти і науки України
+Харківський національний університет радіоелектроніки
+
+
+
+
+
+Кафедра програмної інженерії
+
+
+
+
+ЗВІТ
+з лабораторної роботи №3
+з дисципліни «Аналіз та рефакторинг коду»
+на тему «Розробка бізнес-логіки та функцій адміністрування серверної частини програмної системи»
+
+
+
+
+
+Виконала:                                                                      Перевірив:
+студ. гр. ПЗПІ-22-8                                                       ст. викл. каф. ПІ 
+Бурейко Н. М.                                                                Сокорчук І. П.
+
+
+
+
+Харків 2024
+3 РОЗРОБКА БІЗНЕС-ЛОГІКИ ТА ФУНКЦІЙ АДМІНІСТРУВАННЯ СЕРВЕРНОЇ ЧАСТИНИ ПРОГРАМНОЇ СИСТЕМИ
+
+
+3.1  Мета роботи
+     Розробити бізнес-логіку та функції адміністрування серверної частини програмної системи, що призначена для проведення рекламної акції.
+
+3.2  Хід роботи 
+     Бізнес-логіка серверної частини для проєкту «Програмна система для проведення рекламної акції» відповідає за управління основними функціональними компонентами системи, забезпечуючи інтерактивність та зручність використання як для кінцевих клієнтів. 
+     Для першого випуску програмної системи основна бізнес-логіка серверної частини відповідає за централізоване управління даними, обробку інформації та забезпечення ключової функціональності. Вона реалізує збереження й аналіз зібраних під час анкетування даних, керування каталогом товарів, а також надає інтерфейс для адміністраторів, що дозволяє реєструватися, налаштовувати анкети, керувати товарами та переглядати базову статистику. Створимо UML діаграму діяльності для серверної частини (див. рис. 3.1).
+     
+
+     Рисунок 3.1 Р UML діаграма діяльності для серверної частини
+     
+     Рожевим прямокутником виділений функціонал преміум функції, яка не реалізовується в цьому випуску проєкту. Зеленим прямокутником виділена частина, що належить до функціоналу ІоТ. Ці елементи були додані для більш легкого та цілісного розуміння системи.
+     Створимо UML діаграму взаємодії для серверної частини та розмістимо результат у додатку А.
+     Розглянемо механізм формування результатів після проходження опитування клієнтом. Логіка генерації результатів працює так: отримуємо ID клієнта, шукаємо його дані в базі та перевіряємо, чи є відповіді на опитування. Далі витягуємо бали для кожної категорії відповідей, сумуючи їх, і визначаємо три категорії з найвищими балами. Потім для цих категорій шукаємо продукти та їхні пріоритети, накопичуємо загальні пріоритети для кожного продукту та рахуємо, скільки разів продукт зустрічається в різних категоріях. Продукти сортуються спочатку за кількістю зв'язків із категоріями, а потім за середнім пріоритетом. У результаті повертаємо три топові категорії та п’ять продуктів із найкращими метриками. Також зберігаємо ідентифікатори рекомендованих категорій у базу даних клієнта.
+     Розглянемо детальніше формування топу-5 продуктів, який має найскладнішу логіку в алгоритмі генерації результату. Для формування топ-5 продуктів було використано наступні математичні методи обробки даних: 
+     — агрегація балів для категорій: застосовується сума балів для кожної категорії:
+      S=∑_(i=1)^n▒〖p_i,〗
+де p_i   бали для кожної відповіді, що належить категорії;
+     — середній пріоритет продукту: для кожного продукту обчислюється середнє значення пріоритету:
+A=T/C,
+де T   загальна сума пріоритетів продукту;
+     C   кількість категорій, в яких зустрічається цей продукт;
+     — сортування: спочатку за частотою продукту C, потім за середнім пріоритетом A.
+     Нище наведено код, що обчислює середній пріоритет для кожного продукту та сортує результати відповідно до описаних критеріїв:
+  1 const sortedProducts = Object.entries(productScores)
+  2     .map(([productId, data]) => {
+  3         const averagePriority = data.totalPriority / data.categories.length;
+  4         return { productId, averagePriority, count: productCategoryCount[productId] };
+  5     })
+  6     .sort((a, b) => {
+  7         if (b.count !== a.count) {
+  8             return b.count - a.count;
+  9         }
+ 10         return b.averagePriority - a.averagePriority;
+ 11     })
+ 12     .slice(0, 5);
+
+     Реалізацію перелічених вище використаних математичних методів обробки даних можна побачити у додатку Б.
+     До функціональності адміністративної частини належить: управління товарами в каталозі, включаючи додавання, редагування та видалення інформації про них; встановлення головного товару; додавання та налаштування опитувань для клієнтів шляхом додавання, редагування або видалення питань і відповідей; забезпечення автентифікації та реєстрації адміністраторів для захисту доступу до функціональності; генерація статистики на основі опитувань клієнтів.
+     Алгоритм формування статистики складається з кількох етапів, які обробляють дані з бази та забезпечують їх представлення у зручному форматі. Спочатку система звертається до бази даних для отримання даних про питання та відповіді. Для кожного питання система приєднує відповіді, використовуючи механізм зв’язків, і підраховує, скільки разів кожну відповідь обирали клієнти. Це дозволяє побачити популярність відповідей для кожного питання.
+     Далі обробляються дані про клієнтів, зокрема їхній вік та стать. Система визначає віковий діапазон кожного клієнта, ґрунтуючись на заздалегідь заданих межах, і формує статистику для чоловіків і жінок окремо. На основі цієї статистики обираються найпоширеніші вікові діапазони серед чоловіків і жінок, що дає змогу зрозуміти основну аудиторію.
+     Потім система аналізує рекомендації категорій для клієнтів. Вона розгортає масиви рекомендованих категорій, групує їх за ідентифікатором і підраховує, скільки разів кожна категорія була рекомендована. Після цього система приєднує до цих даних інформацію про назви категорій, сортує результати за популярністю та обирає п’ять найпопулярніших категорій.
+     У результаті система формує узагальнену статистику, яка включає розподіл відповідей на питання, найпоширеніші вікові діапазони для кожної статі та список найбільш популярних категорій. Ця інформація повертається у форматі, зрозумілому для подальшого аналізу або відображення.
+     Для формування статистики були використанні наступні математичні методи обробки данних: агрегація відповідей до кожного питання, підрахунок вікових груп та підрахунок категорій. Реалізацію можна побачити у додатку В.
+     
+     Висновки
+     Під час виконання лабораторної роботи було розроблено бізнес-логіку та функції адміністрування серверної частини проєкту «Програмна система для проведення рекламної акції». Відео захисту доступне за даним посиланням: https://youtu.be/EhQRAHMTAZA.
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+
+ДОДАТОК А
+UML діаграма взаємодії для серверної частини
+
+
+
+ДОДАТОК Б
+Код генерації результатів після опитування
+
+
+  1 const express = require("express");
+  2 const database = require("../connect");
+  3 const ObjectId = require("mongodb").ObjectId;
+  4 const verifyToken = require("../authMiddleware");
+  5
+  6 let resultRoutes = express.Router();
+  7
+  8 resultRoutes.route("/survey-results/:clientId").get(verifyToken, async (req, res) => {
+  9     try {
+ 10         const clientId = req.params.clientId;
+ 11
+ 12         if (!clientId) {
+ 13             return res.status(400).send("Client ID is required");
+ 14         }
+ 15
+ 16         let db = database.getDb();
+ 17         const client = await db.collection("clients").findOne({ _id: new ObjectId(clientId) });
+ 18
+ 19         if (!client) {
+ 20             return res.status(404).send("Client not found");
+ 21         }
+ 22
+ 23         const answers = client.survey_answers || [];  // Перевірка існування
+ 24
+ 25         if (answers.length === 0) {
+ 26             return res.status(404).send("No answers found for the client");
+ 27         }
+ 28
+ 29         // Підрахунок балів для категорій
+ 30         let categoryPoints = {};
+ 31         for (let answer of answers) {
+ 32             const answerData = await db.collection("answers").findOne({ _id: new ObjectId(answer.answer_id) });
+ 33
+ 34             if (answerData && answerData.category) {
+ 35                 let categoryId = answerData.category.toString();
+ 36                 categoryPoints[categoryId] = (categoryPoints[categoryId] || 0) + answerData.point;
+ 37             }
+ 38         }
+ 39
+ 40         // Сортуємо категорії по балам та знаходимо топ-3
+ 41         const topCategories = Object.entries(categoryPoints)
+ 42             .sort(([, a], [, b]) => b - a)
+ 43             .slice(0, 3);
+ 44
+ 45         if (topCategories.length === 0) {
+ 46             return res.status(404).send("No categories found");
+ 47         }
+ 48
+ 49         let productScores = {};
+ 50         let productCategoryCount = {};
+ 51
+ 52         // Для кожної категорії з топ-3 шукаємо продукти та
+ 53         for (let [categoryId] of topCategories) {
+ 54             const priorities = await db.collection("priorities").find({ category: new ObjectId(categoryId) }).toArray();
+ 55
+ 56             for (let priority of priorities) {
+ 57                 const productId = priority.product.toString();
+ 58                 const productPriority = priority.priority;
+ 59
+ 60                 // Якщо продукт зустрічається перший раз, то створюємо новий об'єкт для нього
+ 61                 if (!productScores[productId]) {
+ 62                     productScores[productId] = { totalPriority: 0, categories: [] };
+ 63                 }
+ 64                 productScores[productId].totalPriority += productPriority;
+ 65                 productScores[productId].categories.push(categoryId);
+ 66
+ 67                 // Збільшуємо лічильник у зв'язку з тим скільки раз продукт зустрічається
+ 68                 if (!productCategoryCount[productId]) {
+ 69                     productCategoryCount[productId] = 0;
+ 70                 }
+ 71                 productCategoryCount[productId]++;
+ 72             }
+ 73         }
+ 74
+ 75         // Сортування продуктів: спочатку по частоті появлення в категоріях, потім по середньому значенню пріоритета
+ 76         const sortedProducts = Object.entries(productScores)
+ 77             .map(([productId, data]) => {
+ 78                 const averagePriority = data.totalPriority / data.categories.length;
+ 79                 return { productId, averagePriority, count: productCategoryCount[productId] };
+ 80             })
+ 81             .sort((a, b) => {
+ 82                 if (b.count !== a.count) {
+ 83                     return a.count - b.count;  // Спочатку сортуємо по частоті
+ 84                 }
+ 85                 return a.averagePriority - b.averagePriority;  // Якщо частота рівна, то по пріоритету
+ 86             })
+ 87             .slice(0, 5);
+ 88
+ 89         // Записуємо рекомендовані категорії в таблицю клієнтів
+ 90         const recommendedCategoryIds = topCategories.map(([categoryId]) => new ObjectId(categoryId));
+ 91
+ 92         await db.collection("clients").updateOne(
+ 93             { _id: new ObjectId(clientId) },
+ 94             { $set: { recommended_categories: recommendedCategoryIds } }
+ 95         );
+ 96
+ 97         res.json({
+ 98             topCategories: topCategories,
+ 99             topProducts: sortedProducts
+100         });
+101
+102     } catch (error) {
+103         console.error(error);
+104         res.status(500).send("Internal Server Error");
+105     }
+106 });
+107
+108 module.exports = resultRoutes;
+
+
+
+
+
+
+
+
+
+
+
+ДОДАТОК В
+Код генерації статистики
+
+
+  1 const express = require("express");
+  2 const database = require("../connect");
+  3 const ObjectId = require("mongodb").ObjectId;
+  4 const verifyToken = require("../authMiddleware");
+  5
+  6 let statsRoutes = express.Router();
+  7
+  8 statsRoutes.route("/statistics").get(verifyToken, async (req, res) => {
+  9   try {
+ 10     const db = database.getDb();
+ 11
+ 12     // 1. Питання та відповіді
+ 13     const questions = await db
+ 14       .collection("questions")
+ 15       .aggregate([
+ 16         {
+ 17           $lookup: {
+ 18             from: "answers",
+ 19             localField: "_id",
+ 20             foreignField: "question",
+ 21             as: "answers",
+ 22           },
+ 23         },
+ 24         {
+ 25           $lookup: {
+ 26             from: "clients",
+ 27             pipeline: [
+ 28               { $unwind: "$survey_answers" },
+ 29               {
+ 30                 $group: {
+ 31                   _id: "$survey_answers.answer_id",
+ 32                   count: { $sum: 1 },
+ 33                 },
+ 34               },
+ 35             ],
+ 36             as: "clientAnswers",
+ 37           },
+ 38         },
+ 39         {
+ 40           $project: {
+ 41             question: "$text",
+ 42             answers: {
+ 43               $map: {
+ 44                 input: "$answers",
+ 45                 as: "answer",
+ 46                 in: {
+ 47                   text: "$$answer.text",
+ 48                   count: {
+ 49                     $ifNull: [
+ 50                       {
+ 51                         $first: {
+ 52                           $map: {
+ 53                             input: {
+ 54                               $filter: {
+ 55                                 input: "$clientAnswers",
+ 56                                 as: "clientAnswer",
+ 57                                 cond: {
+ 58                                   $eq: ["$$clientAnswer._id", "$$answer._id"],
+ 59                                 },
+ 60                               },
+ 61                             },
+ 62                             as: "filteredAnswer",
+ 63                             in: "$$filteredAnswer.count",
+ 64                           },
+ 65                         },
+ 66                       },
+ 67                       0, // Если count не найдено, возвращаем 0
+ 68                     ],
+ 69                   },
+ 70                 },
+ 71               },
+ 72             },
+ 73           },
+ 74         },
+ 75       ])
+ 76       .toArray();
+ 77
+ 78     // 2. Діапазон віку для жінок та чоловіків
+ 79     const ageRanges = [
+ 80       { min: 0, max: 12 },
+ 81       { min: 12, max: 18 },
+ 82       { min: 18, max: 30 },
+ 83       { min: 30, max: 40 },
+ 84       { min: 40, max: 65 },
+ 85       { min: 65, max: Infinity },
+ 86     ];
+ 87
+ 88     const clients = await db.collection("clients").find().toArray();
+ 89
+ 90     const ageStats = clients.reduce(
+ 91       (stats, client) => {
+ 92         const age = client.age || 0;
+ 93         const gender = client.gender || "unknown";
+ 94         const range = ageRanges.find((r) => age >= r.min && age < r.max);
+ 95
+ 96         if (range) {
+ 97           stats[gender] = stats[gender] || {};
+ 98           stats[gender][`${range.min}-${range.max}`] =
+ 99             (stats[gender][`${range.min}-${range.max}`] || 0) + 1;
+100         }
+101         return stats;
+102       },
+103       { male: {}, female: {} }
+104     );
+105
+106     const mostCommonAgeRange = {
+107       male: Object.entries(ageStats.male).reduce(
+108         (max, [range, count]) => (count > max.count ? { range, count } : max),
+109         { range: null, count: 0 }
+110       ).range,
+111       female: Object.entries(ageStats.female).reduce(
+112         (max, [range, count]) => (count > max.count ? { range, count } : max),
+113         { range: null, count: 0 }
+114       ).range,
+115     };
+116
+117     // 3. 5 найпопулярніші категорії
+118     const categoryStats = await db
+119       .collection("clients")
+120       .aggregate([
+121         {
+122           $unwind: "$recommended_categories", // Розгортаємо масив рекомендованих категорій
+123         },
+124         {
+125           $group: {
+126             _id: "$recommended_categories", // Групуємо по ідентифікатору категорії
+127             count: { $sum: 1 },
+128           },
+129         },
+130         {
+131           $lookup: {
+132             from: "categories", // Приєднуємо данні категорій
+133             localField: "_id",
+134             foreignField: "_id",
+135             as: "categoryDetails",
+136           },
+137         },
+138         {
+139           $unwind: "$categoryDetails", // Розгортаємо вкладені дані категорій
+140         },
+141         {
+142           $project: {
+143             _id: 1,
+144             name: "$categoryDetails.name",
+145             count: 1,
+146           },
+147         },
+148         { $sort: { count: -1 } }, // Сортуємо за кількістю в порядку зменшення
+149         { $limit: 5 }, // Залишаємо лише 5 найпопулярніших
+150
+151       ])
+152       .toArray();
+153
+154     // Формуємо кінцевий результат
+155     const result = {
+156       questions,
+157       mostCommonAgeRange,
+158       popularCategories: categoryStats.map((cat) => ({
+159         name: cat.name,
+160       })),
+161     };
+162
+163     res.json(result);
+164   } catch (error) {
+165     console.error(error);
+166     res.status(500).send("Internal Server Error");
+167   }
+168 });
+169
+170 module.exports = statsRoutes;
+
+2
+
+
