@@ -49,7 +49,7 @@ resultRoutes.route("/survey-results/:clientId").get(verifyToken, async (req, res
         let productScores = {};
         let productCategoryCount = {};
 
-        // Для кожної категорії з топ-3 шукаємо продукти та
+        // Для кожної категорії з топ-3 шукаємо продукти та рахуємо частоту зустрічання в категоріях
         for (let [categoryId] of topCategories) {
             const priorities = await db.collection("priorities").find({ category: new ObjectId(categoryId) }).toArray();
 
