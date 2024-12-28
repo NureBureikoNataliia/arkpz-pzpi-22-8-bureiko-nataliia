@@ -1,0 +1,308 @@
+﻿Міністерство освіти і науки України
+Харківський національний університет радіоелектроніки
+
+
+
+
+
+Кафедра програмної інженерії
+
+
+
+
+ЗВІТ
+з лабораторної роботи №4
+з дисципліни «Аналіз та рефакторинг коду»
+на тему «Розробка IoT клієнта 
+(бізнес-логіки та функцій налаштування)»
+
+
+
+
+
+Виконала:                                                                      Перевірив:
+студ. гр. ПЗПІ-22-8                                                       ст. викл. каф. ПІ 
+Бурейко Н. М.                                                                Сокорчук І. П.
+
+
+
+
+Харків 2024
+4 РОЗРОБКА IOT КЛІЄНТА (БІЗНЕС-ЛОГІКИ ТА ФУНКЦІЙ НАЛАШТУВАННЯ)
+
+
+4.1 Мета роботи
+      Розробити програмне забезпечення для  IoT або SmartDevice пристрою, створеного на базі будь-якої поширеної на сьогодні платформи, придатної для реалізації вбудованих систем (Embedded  System).
+     
+4.2 Хід роботи 
+     Зважаючи на попередню документацію, створимо UML діаграму прецедентів ІоТ клієнта (рис. 4.1).
+     
+
+     Рисунок 4.1   UML діаграма прецедентів
+     
+     На основі документації створимо також UML діаграму діяльності ІоТ клієнта (див. рис. 4.2).
+     
+
+     Рисунок 4.2   UML діаграма діяльності ІоТ клієнта
+     
+     Реалізуємо схему симуляції IoT клієнта за допомогою платформи Wokwi (див. рис. 4.3).
+     
+
+Рисунок 4.3   Схема IoT клієнта створена за допомогою платформи Wokwi
+     
+     Ця схема проекту в середовищі Wokwi демонструє взаємодію між мікроконтролером ESP32 і кількома компонентами. Основним елементом є плата ESP32-DevKitC V4, яка відповідає за управління всіма підключеними пристроями. Вона забезпечує живлення, обробку сигналів і керування периферією.
+     До плати підключений червоний світлодіод (LED), який повинен підсвічувати продукт. Крім того, в проекті використовується LCD-дисплей формату 1602, який дозволяє відображати текстову інформацію, наприклад, повідомлення про стан системи чи інструкції для користувача. LCD-дисплей підключений через інтерфейс I2C, що спрощує підключення, зводячи його до двох основних сигналів — SDA і SCL.
+     Для визначення відстані використовується ультразвуковий датчик HC-SR04. Він вимірює відстань до об'єктів за допомогою пінів TRIG і ECHO, підключених до ESP32. Цей датчик дозволяє системі реагувати на наближення користувача.
+     Також до плати підключений сервопривід, який керується через PWM-сигнал. Він виконує механічні дії, наприклад, відкривати доступ до зразків продукції після виконання певних умов.
+     Ця схема (код реалізації розташований у додатку А) об’єднує сенсори, пристрої виводу та мікроконтролер в інтерактивну систему, яка може виконувати завдання, пов’язані з виявленням присутності, індикацією стану та відображенням інформації.
+     На жаль, не вдалося підключити симуляцію до серверу, адже сервер працює на локальному хості. У зв’язку з цим було створено ще одну симуляцію ІоТ, яка реалізована як Windows Forms додаток. Основні компоненти:
+      — TrackBar для симуляції датчика відстані (0-200 см);
+      — LED індикатор, що активується при відстані, що рівна або є меншою за 100 см;
+      — система контролю доступу до екземпляру товару, що перевіряє статус опитування кожні 3 секунди.
+      На рисунку 4.4 наведений скріншот програми-симуляції IoT клієнта, в додатку Б розміщений код реалізації функціоналу.
+     
+
+     Рисунок 4.4   Cимуляція ІоТ, реалізована як Windows Forms додаток
+     
+     Бізнес логіка IoT клієнта базується на постійній взаємодії з датчиком відстані та сервером. Система зчитує значення з датчика та порівнює його з пороговим значенням у 100 сантиметрів. При наближенні об'єкта на відстань меншу або рівну 100 сантиметрам активується зелений LED індикатор, що сигналізує про присутність користувача в зоні дії системи:
+  1  private void TrackBarDistance_Scroll(object sender, EventArgs e)
+  2  {
+  3      int distance = trackBarDistance.Value;
+  4      lblDistance.Text = $"Distance: {distance} cm";
+  5
+  6      if (distance <= 100)
+  7      {
+  8          ledIndicator.BackColor = Color.Green; // Turn on LED
+  9          this.BackColor = Color.White; // Maximum brightness
+ 10      }
+ 11      else
+ 12      {
+ 13          ledIndicator.BackColor = Color.Gray; // Turn off LED
+ 14          this.BackColor = SystemColors.Control; // Default brightness
+ 15      }
+ 16  }
+     Математична обробка включає порівняння отриманого значення з пороговим, а також керування часовими інтервалами системи. Клієнт взаємодіє з сервером шляхом періодичних HTTP запитів кожні 3 секунди (3000 мс), перевіряючи статус проходження опитування:
+  1 private async Task<bool> CheckSurveyStatusAsync()
+  2 {
+  3     try
+  4     {
+  5         HttpResponseMessage response = await httpClient.GetAsync("http://localhost:3000/completed-surveys");
+  6         response.EnsureSuccessStatusCode();
+  7         string responseBody = await response.Content.ReadAsStringAsync();
+  8
+  9         return JsonConvert.DeserializeObject<bool>(responseBody);
+ 10     }
+ 11     catch (Exception ex)
+ 12     {
+ 13         MessageBox.Show($"Error communicating with server: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+ 14         return false;
+ 15     }
+ 16 }
+     При успішному проходженні опитування серверна частина системи надає доступ до пробного екземпляру на 10 секунд (10000 мс), після чого автоматично повертається в заблокований стан: 
+  1 const setSurveyCompleted = (value) => {
+  2     surveyCompleted = value;
+  3
+  4     if (value === true) {
+  5         if (timeoutId) clearTimeout(timeoutId);
+  6         timeoutId = setTimeout(() => {
+  7             surveyCompleted = false;
+  8             timeoutId = null;
+  9         }, 10000);
+ 10     }
+ 11 };
+
+
+     Висновки
+     Під час виконання лабораторної роботи було розроблено програмне забезпечення для  IoT або SmartDevice пристрою, створеного на базі будь-якої поширеної на сьогодні платформи, придатної для реалізації вбудованих систем (Embedded  System). Відео захисту доступне за наступним посиланням: https://youtu.be/-ZQOaIiCF5I.
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+
+
+ДОДАТОК А
+Код реалізації схеми IoT клієнта у сервісі Wokwi
+
+
+  1 {
+  2   "version": 1,
+  3   "author": "Наталія Бурейко",
+  4   "editor": "wokwi",
+  5   "parts": [
+  6     { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 163.2, "left": -62.36, "attrs": {} },
+  7     {
+  8       "type": "wokwi-led",
+  9       "id": "led1",
+ 10       "top": -80.4,
+ 11       "left": -207.4,
+ 12       "attrs": { "color": "red" }
+ 13     },
+ 14     {
+ 15       "type": "wokwi-lcd1602",
+ 16       "id": "lcd1",
+ 17       "top": -99.2,
+ 18       "left": 53.6,
+ 19       "attrs": { "pins": "i2c" }
+ 20     },
+ 21     { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -104.1, "left": -167.3, "attrs": {} },
+ 22     { "type": "wokwi-servo", "id": "servo1", "top": 46, "left": 67.2, "attrs": {} }
+ 23   ],
+ 24   "connections": [
+ 25     [ "esp:TX", "$serialMonitor:RX", "", [] ],
+ 26     [ "esp:RX", "$serialMonitor:TX", "", [] ],
+ 27     [ "ultrasonic1:VCC", "esp:5V", "red", [ "v0" ] ],
+ 28     [ "ultrasonic1:GND", "esp:GND.2", "black", [ "v0" ] ],
+ 29     [ "ultrasonic1:ECHO", "esp:18", "green", [ "v0" ] ],
+ 30     [ "esp:5", "ultrasonic1:TRIG", "green", [ "h0" ] ],
+ 31     [ "led1:A", "esp:13", "green", [ "v0" ] ],
+ 32     [ "led1:C", "esp:GND.2", "green", [ "v0" ] ],
+ 33     [ "servo1:GND", "esp:GND.2", "black", [ "h0" ] ],
+ 34     [ "servo1:V+", "esp:5V", "green", [ "h0" ] ],
+ 35     [ "esp:19", "servo1:PWM", "green", [ "h0" ] ],
+ 36     [ "lcd1:GND", "esp:GND.2", "black", [ "h0" ] ],
+ 37     [ "lcd1:VCC", "esp:5V", "red", [ "h0" ] ],
+ 38     [ "lcd1:SDA", "esp:21", "green", [ "h0" ] ],
+ 39     [ "lcd1:SCL", "esp:22", "green", [ "h0" ] ]
+ 40   ],
+ 41   "dependencies": {}
+ 42 }
+
+
+
+
+
+
+
+
+
+ДОДАТОК Б
+Код реалізації функціональності IoT клієнта
+
+
+  1 using System;
+  2 using System.Drawing;
+  3 using System.Windows.Forms;
+  4 using System.Net.Http;
+  5 using Newtonsoft.Json;
+  6 using System.Threading.Tasks;
+  7 using Timer = System.Windows.Forms.Timer;
+  8
+  9 namespace IoT
+ 10 {
+ 11     public partial class IoTForm : Form
+ 12     {
+ 13         private Label lblDistance;
+ 14         private TrackBar trackBarDistance;
+ 15         private PictureBox ledIndicator;
+ 16         private Label lblAccess;
+ 17         private Timer accessTimer;
+ 18         private Timer surveyCheckTimer;
+ 19         private bool surveyCompleted = false;
+ 20         private readonly HttpClient httpClient;
+ 21
+ 22         public IoTForm()
+ 23         {
+ 24             InitializeComponent();
+ 25             httpClient = new HttpClient();
+ 26             // Timer to check survey status every 3 seconds
+ 27             surveyCheckTimer = new Timer { Interval = 3000 }; // 3 seconds
+ 28             surveyCheckTimer.Tick += async (s, e) => await CheckSurveyAutomatically();
+ 29             surveyCheckTimer.Start();
+ 30         }
+ 31
+ 32         private void TrackBarDistance_Scroll(object sender, EventArgs e)
+ 33         {
+ 34             int distance = trackBarDistance.Value;
+ 35             lblDistance.Text = $"Distance: {distance} cm";
+ 36
+ 37             if (distance <= 100)
+ 38             {
+ 39                 ledIndicator.BackColor = Color.Green; // Turn on LED
+ 40                 this.BackColor = Color.White; // Maximum brightness
+ 41             }
+ 42             else
+ 43             {
+ 44                 ledIndicator.BackColor = Color.Gray; // Turn off LED
+ 45                 this.BackColor = SystemColors.Control; // Default brightness
+ 46             }
+ 47         }
+ 48
+ 49         private void AccessTimer_Tick(object sender, EventArgs e)
+ 50         {
+ 51             lblAccess.Text = "Access: Locked";
+ 52             surveyCompleted = false;
+ 53             accessTimer.Stop();
+ 54         }
+ 55
+ 56         private async Task CheckSurveyAutomatically()
+ 57         {
+ 58             int distance = trackBarDistance.Value;
+ 59
+ 60             if (distance > 100)
+ 61             {
+ 62                 lblAccess.Text = "Access: Locked";
+ 63                 return;
+ 64             }
+ 65
+ 66             if (surveyCompleted) return; // Skip if survey is already completed
+ 67
+ 68             try
+ 69             {
+ 70                 surveyCompleted = await CheckSurveyStatusAsync();
+ 71
+ 72                 if (surveyCompleted)
+ 73                 {
+ 74                     lblAccess.Text = "Access: Granted";
+ 75                     accessTimer.Start();
+ 76                 }
+ 77                 else
+ 78                 {
+ 79                     lblAccess.Text = "Access: Locked";
+ 80                 }
+ 81             }
+ 82             catch (Exception ex)
+ 83             {
+ 84                 MessageBox.Show($"Error communicating with server: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+ 85             }
+ 86         }
+ 87
+ 88
+ 89         private async Task<bool> CheckSurveyStatusAsync()
+ 90         {
+ 91             try
+ 92             {
+ 93                 HttpResponseMessage response = await httpClient.GetAsync("http://localhost:3000/completed-surveys");
+ 94                 response.EnsureSuccessStatusCode();
+ 95                 string responseBody = await response.Content.ReadAsStringAsync();
+ 96
+ 97                 return JsonConvert.DeserializeObject<bool>(responseBody);
+ 98             }
+ 99             catch (Exception ex)
+100             {
+101                 MessageBox.Show($"Error communicating with server: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+102                 return false;
+103             }
+104         }
+105
+106     }
+107 }
+
+
+
+
+
+
+
+
+
+
+
+2
+
+
