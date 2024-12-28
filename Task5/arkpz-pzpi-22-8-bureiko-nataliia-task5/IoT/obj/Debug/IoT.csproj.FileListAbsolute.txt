@@ -1,0 +1,13 @@
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.csproj.AssemblyReference.cache
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.IoTForm.resources
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.Properties.Resources.resources
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.csproj.GenerateResource.cache
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.csproj.CoreCompileInputs.cache
+C:\Users\PC\source\repos\IoT\IoT\bin\Debug\IoT.exe.config
+C:\Users\PC\source\repos\IoT\IoT\bin\Debug\IoT.exe
+C:\Users\PC\source\repos\IoT\IoT\bin\Debug\IoT.pdb
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.exe
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.pdb
+C:\Users\PC\source\repos\IoT\IoT\bin\Debug\Newtonsoft.Json.dll
+C:\Users\PC\source\repos\IoT\IoT\bin\Debug\Newtonsoft.Json.xml
+C:\Users\PC\source\repos\IoT\IoT\obj\Debug\IoT.csproj.CopyComplete
